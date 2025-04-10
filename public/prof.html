@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kahoot Clone - Professora</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-xl space-y-6">
+    <h1 class="text-2xl font-bold text-center">Painel da Professora</h1>
+
+    <!-- Criar Quiz -->
+    <section class="space-y-4">
+      <h2 class="text-xl font-semibold">Criar Novo Quiz</h2>
+      <input id="titulo" type="text" placeholder="Título do Quiz"
+             class="w-full px-4 py-2 border rounded" />
+
+      <input id="conteudos" type="text" placeholder="Conteúdos estudados (ex: cinemática, MRU)"
+             class="w-full px-4 py-2 border rounded" />
+
+      <input id="prompt_ia" type="text" placeholder="Prompt personalizado (opcional)"
+             class="w-full px-4 py-2 border rounded" />
+
+      <button onclick="gerarPerguntaIA()" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">
+        🤖 Gerar pergunta automaticamente com IA
+      </button>
+
+      <div id="perguntas" class="space-y-4">
+        <!-- Perguntas serão adicionadas aqui -->
+      </div>
+
+      <button onclick="adicionarPergunta()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        + Adicionar Pergunta Manual
+      </button>
+
+      <button onclick="criarQuiz()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 w-full">
+        Criar Quiz
+      </button>
+    </section>
+
+    <!-- Iniciar Partida -->
+    <section class="space-y-4 border-t pt-6">
+      <h2 class="text-xl font-semibold">Iniciar Partida</h2>
+      <input id="pin_input" type="number" placeholder="ID do Quiz"
+             class="w-full px-4 py-2 border rounded" />
+      <button onclick="iniciarPartida()" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 w-full">
+        Iniciar Partida
+      </button>
+      <p id="pinArea" class="text-lg font-bold text-center text-indigo-600"></p>
+    </section>
+  </div>
+
+  <script>
+    let perguntaCount = 0;
+
+    function adicionarPergunta(perguntaTexto = "", respostas = []) {
+      perguntaCount++;
+      const perguntasDiv = document.getElementById("perguntas");
+
+      const perguntaHTML = document.createElement("div");
+      perguntaHTML.className = "border p-4 rounded space-y-2 bg-gray-50";
+
+      perguntaHTML.innerHTML = `
+        <input type="text" placeholder="Pergunta ${perguntaCount}"
+               class="w-full px-3 py-2 border rounded pergunta" value="${perguntaTexto}" />
+
+        <div class="space-y-1 respostas">
+          ${[0,1,2,3].map(i => {
+            const texto = respostas[i]?.texto || "";
+            const correta = respostas[i]?.correta ? "checked" : "";
+            return `
+              <div class="flex items-center gap-2">
+                <input type="checkbox" class="corretaCheckbox" onchange="garantirUnicaResposta(this)" ${correta} />
+                <input type="text" placeholder="Resposta ${i+1}" class="w-full px-3 py-2 border rounded resposta" value="${texto}" />
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      perguntasDiv.appendChild(perguntaHTML);
+    }
+
+    function garantirUnicaResposta(marcado) {
+      const container = marcado.closest(".respostas");
+      const checkboxes = container.querySelectorAll(".corretaCheckbox");
+
+      checkboxes.forEach(cb => {
+        if (cb !== marcado) cb.checked = false;
+      });
+    }
+
+    async function criarQuiz() {
+      const titulo = document.getElementById("titulo").value;
+      const conteudos = document.getElementById("conteudos").value;
+      const perguntas = [];
+
+      document.querySelectorAll(".pergunta").forEach((pEl) => {
+        const enunciado = pEl.value;
+        const respostas = [];
+
+        const container = pEl.closest("div");
+        const respostaInputs = container.querySelectorAll(".respostas .resposta");
+        const checkboxes = container.querySelectorAll(".respostas .corretaCheckbox");
+
+        respostaInputs.forEach((input, idx) => {
+          respostas.push({
+            texto: input.value,
+            correta: checkboxes[idx].checked
+          });
+        });
+
+        perguntas.push({ enunciado, respostas });
+      });
+
+      const res = await fetch("http://localhost:8000/criar_quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ titulo, conteudos, perguntas })
+      });
+
+      const data = await res.json();
+      alert(data.mensagem + (data.quiz_id ? ` (ID: ${data.quiz_id})` : ""));
+
+      // Coloca o quiz_id automaticamente no campo pin_input
+      if (data.quiz_id) {
+        document.getElementById("pin_input").value = data.quiz_id;
+      }
+    }
+
+    async function iniciarPartida() {
+      const quiz_id = parseInt(document.getElementById("pin_input").value);
+      const res = await fetch("http://localhost:8000/iniciar_partida", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quiz_id })
+      });
+
+      const data = await res.json();
+      if (data.pin) {
+        document.getElementById("pin_input").value = data.pin;
+        document.getElementById("pinArea").innerText = `PIN da partida: ${data.pin}`;
+        alert(`Partida criada com sucesso! PIN: ${data.pin}`);
+      } else {
+        alert(data.mensagem || "Erro ao iniciar partida");
+      }
+    }
+
+    async function gerarPerguntaIA() {
+      const conteudo = document.getElementById("conteudos").value;
+      const prompt = document.getElementById("prompt_ia").value;
+
+      const res = await fetch("/gerar_pergunta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conteudo, prompt })
+      });
+
+      const data = await res.json();
+
+      if (data.pergunta && data.respostas) {
+        try {
+          adicionarPergunta(data.pergunta, data.respostas);
+        } catch (e) {
+          alert("Erro ao interpretar a resposta da IA. Verifique o console.");
+          console.error("Resposta da IA:", data);
+        }
+      } else {
+        alert("Erro: " + (data.erro || "Resposta inesperada da IA."));
+      }
+    }
+  </script>
+</body>
+</html>

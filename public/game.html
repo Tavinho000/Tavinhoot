@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tela do Jogo - Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white min-h-screen flex flex-col relative">
+
+  <!-- PERGUNTA -->
+  <div class="w-full bg-gray-100 py-6 px-4 flex items-center justify-between">
+    <h1 id="pergunta" class="text-2xl font-bold text-center flex-1">Carregando pergunta...</h1>
+    <button id="skipBtn" class="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500 hidden">Pular</button>
+  </div>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <div class="flex-1 flex flex-col items-center justify-center px-4 py-8 gap-6">
+    <div class="flex items-center justify-center w-full gap-6 max-w-6xl flex-wrap">
+      <!-- TIMER -->
+      <div class="flex-shrink-0">
+        <div class="w-20 h-20 rounded-full bg-purple-600 text-white flex items-center justify-center text-xl font-bold" id="timer">
+          20
+        </div>
+      </div>
+
+      <!-- RESPOSTAS -->
+      <div class="grid grid-cols-2 gap-6 w-full max-w-3xl">
+        <div onclick="selecionarResposta(0)" class="bg-red-500 hover:bg-red-600 text-white text-lg font-bold rounded-lg p-6 cursor-pointer flex items-center gap-4">
+          <span class="text-2xl">▲</span> <span id="resposta0">Resposta 1</span>
+        </div>
+        <div onclick="selecionarResposta(1)" class="bg-blue-500 hover:bg-blue-600 text-white text-lg font-bold rounded-lg p-6 cursor-pointer flex items-center gap-4">
+          <span class="text-2xl">◆</span> <span id="resposta1">Resposta 2</span>
+        </div>
+        <div onclick="selecionarResposta(2)" class="bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-bold rounded-lg p-6 cursor-pointer flex items-center gap-4">
+          <span class="text-2xl">●</span> <span id="resposta2">Resposta 3</span>
+        </div>
+        <div onclick="selecionarResposta(3)" class="bg-green-500 hover:bg-green-600 text-white text-lg font-bold rounded-lg p-6 cursor-pointer flex items-center gap-4">
+          <span class="text-2xl">■</span> <span id="resposta3">Resposta 4</span>
+        </div>
+      </div>
+
+      <!-- CONTADOR DE RESPOSTAS -->
+      <div class="flex-shrink-0 text-center text-gray-700">
+        <p class="text-3xl font-bold" id="respostas">0</p>
+        <p class="text-md">Respostas</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TELA DE RESULTADO -->
+  <div id="resultadoContainer" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+    <div class="bg-white rounded-xl shadow-xl p-8 text-center w-full max-w-md">
+      <h2 class="text-2xl font-bold mb-4">Resultado da Pergunta</h2>
+      <div class="flex justify-around text-lg mb-4">
+        <div>
+          <p class="text-green-600 font-bold text-2xl" id="acertos">0</p>
+          <p>Acertos</p>
+        </div>
+        <div>
+          <p class="text-red-600 font-bold text-2xl" id="erros">0</p>
+          <p>Erros</p>
+        </div>
+      </div>
+      <div id="graficoRespostas" class="flex justify-center gap-4 mb-4">
+        <!-- Gráfico aqui -->
+      </div>
+      <button onclick="fecharResultado()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Continuar</button>
+    </div>
+  </div>
+
+  <script>
+    let tempo = 20;
+    let tempoMaximo = 20;
+    let intervalo;
+    let perguntas = [];
+    let indicePerguntaAtual = 0;
+    let perguntaId = null;
+    let respostasApi = [];
+
+    const playerId = sessionStorage.getItem("player_id");
+    const pin = sessionStorage.getItem("pin");
+
+    if (!playerId || !pin) {
+      alert("Informações inválidas. Voltando à tela inicial.");
+      window.location.href = "index.html";
+    }
+
+    async function carregarTodasPerguntas() {
+      const res = await fetch(`http://localhost:8000/perguntas/${pin}`);
+      perguntas = await res.json();
+
+      if (perguntas.length === 0) {
+        alert("Nenhuma pergunta disponível.");
+        return;
+      }
+
+      indicePerguntaAtual = 0;
+      mostrarPerguntaAtual();
+    }
+
+    function mostrarPerguntaAtual() {
+      const pergunta = perguntas[indicePerguntaAtual];
+
+      if (!pergunta) {
+        alert("Fim do quiz!");
+        window.location.href = "ranking.html";
+        return;
+      }
+
+      perguntaId = pergunta.id;
+      respostasApi = pergunta.respostas;
+
+      document.getElementById("pergunta").innerText = pergunta.enunciado;
+
+      pergunta.respostas.forEach((resposta, i) => {
+        const span = document.getElementById("resposta" + i);
+        if (span) span.innerText = resposta.texto;
+      });
+
+      document.getElementById("respostas").innerText = "0";
+      iniciarTimer();
+    }
+
+    function iniciarTimer() {
+      clearInterval(intervalo);
+      tempo = tempoMaximo;
+      document.getElementById("timer").innerText = tempo;
+
+      intervalo = setInterval(() => {
+        tempo--;
+        document.getElementById("timer").innerText = tempo;
+        if (tempo <= 0) {
+          clearInterval(intervalo);
+          mostrarResultadoFinal();
+        }
+      }, 1000);
+    }
+
+    async function selecionarResposta(indice) {
+      if (!respostasApi[indice]) return;
+
+      clearInterval(intervalo);
+      document.getElementById("respostas").innerText = "1";
+
+      const resposta_id = respostasApi[indice].id;
+      const pontuacao = Math.floor(1000 * (tempo / tempoMaximo));
+
+      const res = await fetch("http://localhost:8000/responder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          player_id: playerId,
+          question_id: perguntaId,
+          resposta_id,
+          pontuacao
+        })
+      });
+
+      const data = await res.json();
+      mostrarResultadoFinal(data);
+    }
+
+    function mostrarPopup(tipo, mensagem) {
+      const popup = document.createElement("div");
+      popup.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 text-white font-bold text-lg ${
+        tipo === "acerto" ? "bg-green-600" : "bg-red-600"
+      }`;
+
+      popup.innerText = mensagem;
+
+      document.body.appendChild(popup);
+
+      setTimeout(() => {
+        popup.remove();
+      }, 2500);
+    }
+
+    function mostrarResultadoFinal(data = { acertos: 0, erros: 0, respostas: [] }) {
+      const acertou = data?.correta === true;
+
+      if (acertou) {
+        mostrarPopup("acerto", "✅ Você acertou!");
+      } else {
+        mostrarPopup("erro", "❌ Você errou!");
+      }
+
+      document.getElementById("acertos").innerText = data.acertos || 0;
+      document.getElementById("erros").innerText = data.erros || 0;
+      document.getElementById("resultadoContainer").classList.remove("hidden");
+
+      const grafico = document.getElementById("graficoRespostas");
+      grafico.innerHTML = "";
+
+      const cores = ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"];
+
+      if (data.respostas) {
+        data.respostas.forEach((res, i) => {
+          const barra = document.createElement("div");
+          barra.className = `${cores[i % cores.length]} w-16 rounded-t`;
+          barra.style.height = `${res.quantidade * 20}px`;
+
+          const label = document.createElement("div");
+          label.className = "text-center mt-1 font-bold";
+          label.innerText = res.quantidade;
+
+          const container = document.createElement("div");
+          container.className = "flex flex-col items-center";
+          container.appendChild(barra);
+          container.appendChild(label);
+
+          grafico.appendChild(container);
+        });
+      }
+    }
+
+    function fecharResultado() {
+      document.getElementById("resultadoContainer").classList.add("hidden");
+      indicePerguntaAtual++;
+      mostrarPerguntaAtual();
+    }
+
+    window.onload = carregarTodasPerguntas;
+  </script>
+</body>
+</html>

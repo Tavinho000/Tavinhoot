@@ -1,0 +1,47 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kahoot Clone - Jogador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="w-full max-w-md p-6 bg-white rounded-xl shadow-xl space-y-4">
+    <h1 class="text-2xl font-bold text-center">Entrar na Partida</h1>
+
+    <input id="nome" type="text" placeholder="Seu nome"
+           class="w-full px-4 py-2 border rounded" />
+    <input id="pin" type="text" placeholder="PIN da partida"
+           class="w-full px-4 py-2 border rounded" />
+    <button onclick="entrarPartida()"
+            class="w-full bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">Entrar</button>
+  </div>
+
+  <script>
+    async function entrarPartida() {
+      const nome = document.getElementById("nome").value;
+      const pin = document.getElementById("pin").value;
+
+      const res = await fetch("http://localhost:8000/entrar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, pin })
+      });
+
+      const data = await res.json();
+      if (data.player_id) {
+        // Armazena o player_id e pin no sessionStorage
+        sessionStorage.setItem("player_id", data.player_id);
+        sessionStorage.setItem("pin", pin);
+
+        // Redireciona para a tela de jogo
+        window.location.href = "game.html";
+      } else {
+        alert(data.erro || "Erro ao entrar.");
+      }
+    }
+  </script>
+</body>
+</html>
