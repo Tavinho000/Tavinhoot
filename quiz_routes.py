@@ -124,6 +124,22 @@ def responder(dados: RespostaRequest, db: Session = Depends(get_db)):
     if not resposta or resposta.question_id != dados.question_id:
         return {"erro": "Resposta inválida"}
 
+    # Verifica se o jogador já respondeu essa pergunta
+    ja_respondeu = db.query(models.PlayerAnswer).filter_by(
+        player_id=jogador.id, question_id=dados.question_id
+    ).first()
+    if ja_respondeu:
+        return {"erro": "Você já respondeu essa pergunta"}
+
+    # Armazena resposta
+    player_answer = models.PlayerAnswer(
+        player_id=jogador.id,
+        question_id=dados.question_id,
+        answer_id=dados.resposta_id
+    )
+    db.add(player_answer)
+
+    # Calcula pontos
     tempo_maximo = 20
     tempo_resposta = (datetime.utcnow() - sessao.inicio_pergunta).total_seconds()
 
@@ -139,11 +155,11 @@ def responder(dados: RespostaRequest, db: Session = Depends(get_db)):
             "bonus": pontuacao
         }
     else:
+        db.commit()
         return {
             "mensagem": "Resposta incorreta.",
             "pontuacao": jogador.pontuacao
         }
-
 # ======== Próxima Pergunta ========
 @router.post("/proxima_pergunta")
 def proxima_pergunta(pin: str, db: Session = Depends(get_db)):
@@ -261,3 +277,30 @@ def obter_perguntas(pin: str, db: Session = Depends(get_db)):
         })
 
     return resultado
+
+
+@router.get("/resultado_pergunta")
+def resultado_pergunta(pin: str, db: Session = Depends(get_db)):
+    sessao = db.query(models.Session).filter_by(pin=pin).first()
+    if not sessao:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+
+    pergunta_id = sessao.ultima_pergunta_id
+    if not pergunta_id:
+        raise HTTPException(status_code=400, detail="Nenhuma pergunta foi enviada ainda")
+
+    respostas = db.query(models.Answer).filter_by(question_id=pergunta_id).all()
+
+    resultado = []
+    for resposta in respostas:
+        total = db.query(models.PlayerAnswer).filter_by(answer_id=resposta.id).count()
+        resultado.append({
+            "texto": resposta.texto,
+            "correta": resposta.correta,
+            "quantidade": total
+        })
+
+    return {
+        "pergunta_id": pergunta_id,
+        "respostas": resultado
+    }

@@ -64,3 +64,17 @@ class Player(Base):
     pontuacao = Column(Integer, default=0, nullable=False)
 
     sessao = relationship("Session", back_populates="jogadores")
+
+# Modelo de Resposta do Jogador
+class PlayerAnswer(Base):
+    __tablename__ = "player_answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    answer_id = Column(Integer, ForeignKey("answers.id"), nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    player = relationship("Player")
+    question = relationship("Question")
+    answer = relationship("Answer")
