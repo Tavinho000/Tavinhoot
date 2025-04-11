@@ -87,7 +87,7 @@
     }
 
     async function carregarTodasPerguntas() {
-      const res = await fetch(`http://localhost:8000/perguntas/${pin}`);
+      const res = await fetch(`https://tavinhoot.onrender.com/perguntas/${pin}`);
       perguntas = await res.json();
 
       if (perguntas.length === 0) {
@@ -146,7 +146,7 @@
       const resposta_id = respostasApi[indice].id;
       const pontuacao = Math.floor(1000 * (tempo / tempoMaximo));
 
-      const res = await fetch("http://localhost:8000/responder", {
+      const res = await fetch("https://tavinhoot.onrender.com/responder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
