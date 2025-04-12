@@ -27,7 +27,7 @@
   <script>
     async function carregarRanking() {
       const pin = sessionStorage.getItem("pin");
-      const res = await fetch(`https://tavinhoot.onrender.com/ranking/${pin}`);
+      const res = await fetch(`http://localhost:8000/ranking/${pin}`);
       const ranking = await res.json();
 
       const tbody = document.getElementById("rankingBody");
