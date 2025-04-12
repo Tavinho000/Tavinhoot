@@ -177,13 +177,14 @@
     }
 
     function mostrarResultadoFinal(data = { acertos: 0, erros: 0, respostas: [] }) {
-      const acertou = data?.correta === true;
+    // Pega a resposta do próprio jogador
+    const minhaResposta = data.respostas?.find(r => r.player_id === playerId);
 
-      if (acertou) {
-        mostrarPopup("acerto", "✅ Você acertou!");
-      } else {
-        mostrarPopup("erro", "❌ Você errou!");
-      }
+    if (minhaResposta?.correta) {
+      mostrarPopup("acerto", "✅ Você acertou!");
+    } else {
+      mostrarPopup("erro", "❌ Você errou!");
+    }
 
       document.getElementById("acertos").innerText = data.acertos || 0;
       document.getElementById("erros").innerText = data.erros || 0;
