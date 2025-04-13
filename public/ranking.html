@@ -17,7 +17,7 @@
           <th class="py-2 px-4">Pontuação</th>
         </tr>
       </thead>
-      <tbody id="rankingBody">
+      <tbody id="ranking-table">
         <!-- Linhas serão adicionadas dinamicamente -->
       </tbody>
     </table>
@@ -25,26 +25,63 @@
   </div>
 
   <script>
-    async function carregarRanking() {
-      const pin = sessionStorage.getItem("pin");
-      const res = await fetch(`http://localhost:8000/ranking/${pin}`);
-      const ranking = await res.json();
-
-      const tbody = document.getElementById("rankingBody");
-      tbody.innerHTML = "";
-
-      ranking.forEach((player, index) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="py-2 px-4 font-bold">${index + 1}</td>
-          <td class="py-2 px-4">${player.nome}</td>
-          <td class="py-2 px-4">${player.pontuacao}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+    // Função para carregar o ranking a partir da API
+    function carregarRanking() {
+      const pin = sessionStorage.getItem("pin"); // Recupera o PIN da sessão
+  
+      if (!pin) {
+        alert("PIN não encontrado. Volte à página inicial.");
+        window.location.href = "index.html";
+        return;
+      }
+  
+      const url = `https://tavinhoot.onrender.com/ranking/${pin}`;
+  
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Erro ao buscar dados do ranking");
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (!Array.isArray(data)) {
+            console.error("A resposta da API não é um array de ranking", data);
+            return;
+          }
+  
+          const rankingTable = document.getElementById("ranking-table");
+          rankingTable.innerHTML = ""; // Limpa a tabela antes de adicionar os dados
+  
+          data.forEach((player, index) => {
+            const row = document.createElement("tr");
+  
+            const posCell = document.createElement("td");
+            posCell.className = "py-2 px-4 font-semibold";
+            posCell.textContent = index + 1;
+            row.appendChild(posCell);
+  
+            const nameCell = document.createElement("td");
+            nameCell.className = "py-2 px-4";
+            nameCell.textContent = player.nome;
+            row.appendChild(nameCell);
+  
+            const scoreCell = document.createElement("td");
+            scoreCell.className = "py-2 px-4";
+            scoreCell.textContent = player.pontuacao;
+            row.appendChild(scoreCell);
+  
+            rankingTable.appendChild(row);
+          });
+        })
+        .catch(error => {
+          console.error("Erro ao carregar o ranking:", error);
+        });
     }
-
-    window.onload = carregarRanking;
+  
+    // Chama a função quando a página for carregada
+    document.addEventListener("DOMContentLoaded", carregarRanking);
   </script>
+  
 </body>
 </html>

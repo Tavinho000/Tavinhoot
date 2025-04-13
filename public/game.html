@@ -48,25 +48,9 @@
     </div>
   </div>
 
-  <!-- TELA DE RESULTADO -->
-  <div id="resultadoContainer" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-    <div class="bg-white rounded-xl shadow-xl p-8 text-center w-full max-w-md">
-      <h2 class="text-2xl font-bold mb-4">Resultado da Pergunta</h2>
-      <div class="flex justify-around text-lg mb-4">
-        <div>
-          <p class="text-green-600 font-bold text-2xl" id="acertos">0</p>
-          <p>Acertos</p>
-        </div>
-        <div>
-          <p class="text-red-600 font-bold text-2xl" id="erros">0</p>
-          <p>Erros</p>
-        </div>
-      </div>
-      <div id="graficoRespostas" class="flex justify-center gap-4 mb-4">
-        <!-- Gráfico aqui -->
-      </div>
-      <button onclick="fecharResultado()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Continuar</button>
-    </div>
+  <!-- POPUP DE RESULTADO -->
+  <div id="popupResultado" class="fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 text-white font-bold text-lg bg-gray-600 hidden">
+    <span id="popupMensagem"></span>
   </div>
 
   <script>
@@ -87,7 +71,7 @@
     }
 
     async function carregarTodasPerguntas() {
-      const res = await fetch(`http://localhost:8000/perguntas/${pin}`);
+      const res = await fetch(`https://tavinhoot.onrender.com/perguntas/${pin}`);
       perguntas = await res.json();
 
       if (perguntas.length === 0) {
@@ -146,7 +130,7 @@
       const resposta_id = respostasApi[indice].id;
       const pontuacao = Math.floor(1000 * (tempo / tempoMaximo));
 
-      const res = await fetch("http://localhost:8000/responder", {
+      const res = await fetch("https://tavinhoot.onrender.com/responder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -162,63 +146,27 @@
     }
 
     function mostrarPopup(tipo, mensagem) {
-      const popup = document.createElement("div");
-      popup.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 text-white font-bold text-lg ${
-        tipo === "acerto" ? "bg-green-600" : "bg-red-600"
-      }`;
+      const popup = document.getElementById("popupResultado");
+      popup.classList.remove("hidden");
 
-      popup.innerText = mensagem;
-
-      document.body.appendChild(popup);
+      const mensagemSpan = document.getElementById("popupMensagem");
+      mensagemSpan.innerText = mensagem;
 
       setTimeout(() => {
-        popup.remove();
+        popup.classList.add("hidden");
+        indicePerguntaAtual++;
+        mostrarPerguntaAtual();
       }, 2500);
     }
 
-    function mostrarResultadoFinal(data = { acertos: 0, erros: 0, respostas: [] }) {
-    // Pega a resposta do próprio jogador
-    const minhaResposta = data.respostas?.find(r => r.player_id === playerId);
+    function mostrarResultadoFinal(data = {}) {
+      console.log("Resposta recebida da API:", data);
 
-    if (minhaResposta?.correta) {
-      mostrarPopup("acerto", "✅ Você acertou!");
-    } else {
-      mostrarPopup("erro", "❌ Você errou!");
-    }
-
-      document.getElementById("acertos").innerText = data.acertos || 0;
-      document.getElementById("erros").innerText = data.erros || 0;
-      document.getElementById("resultadoContainer").classList.remove("hidden");
-
-      const grafico = document.getElementById("graficoRespostas");
-      grafico.innerHTML = "";
-
-      const cores = ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"];
-
-      if (data.respostas) {
-        data.respostas.forEach((res, i) => {
-          const barra = document.createElement("div");
-          barra.className = `${cores[i % cores.length]} w-16 rounded-t`;
-          barra.style.height = `${res.quantidade * 20}px`;
-
-          const label = document.createElement("div");
-          label.className = "text-center mt-1 font-bold";
-          label.innerText = res.quantidade;
-
-          const container = document.createElement("div");
-          container.className = "flex flex-col items-center";
-          container.appendChild(barra);
-          container.appendChild(label);
-
-          grafico.appendChild(container);
-        });
+      if (data.correta) {
+        mostrarPopup("acerto", "✅ Você acertou!");
+      } else {
+        mostrarPopup("erro", "❌ Você errou!");
       }
-    }
-
-    function fecharResultado() {
-      document.getElementById("resultadoContainer").classList.add("hidden");
-      indicePerguntaAtual++;
-      mostrarPerguntaAtual();
     }
 
     window.onload = carregarTodasPerguntas;

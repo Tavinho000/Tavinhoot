@@ -114,22 +114,22 @@ class RespostaRequest(BaseModel):
 def responder(dados: RespostaRequest, db: Session = Depends(get_db)):
     jogador = db.query(models.Player).filter(models.Player.id == dados.player_id).first()
     if not jogador:
-        return {"erro": "Jogador não encontrado"}
+        return {"success": False, "correta": False, "mensagem": "Jogador não encontrado"}
 
     sessao = db.query(models.Session).filter(models.Session.id == jogador.session_id).first()
     if not sessao:
-        return {"erro": "Sessão inválida"}
+        return {"success": False, "correta": False, "mensagem": "Sessão inválida"}
 
     resposta = db.query(models.Answer).filter(models.Answer.id == dados.resposta_id).first()
     if not resposta or resposta.question_id != dados.question_id:
-        return {"erro": "Resposta inválida"}
+        return {"success": False, "correta": False, "mensagem": "Resposta inválida"}
 
     # Verifica se o jogador já respondeu essa pergunta
     ja_respondeu = db.query(models.PlayerAnswer).filter_by(
         player_id=jogador.id, question_id=dados.question_id
     ).first()
     if ja_respondeu:
-        return {"erro": "Você já respondeu essa pergunta"}
+        return {"success": False, "correta": False, "mensagem": "Você já respondeu essa pergunta"}
 
     # Armazena resposta
     player_answer = models.PlayerAnswer(
@@ -150,6 +150,8 @@ def responder(dados: RespostaRequest, db: Session = Depends(get_db)):
         jogador.pontuacao += pontuacao
         db.commit()
         return {
+            "success": True,
+            "correta": True,
             "mensagem": "Resposta correta!",
             "pontuacao": jogador.pontuacao,
             "bonus": pontuacao
@@ -157,9 +159,12 @@ def responder(dados: RespostaRequest, db: Session = Depends(get_db)):
     else:
         db.commit()
         return {
+            "success": True,
+            "correta": False,
             "mensagem": "Resposta incorreta.",
             "pontuacao": jogador.pontuacao
         }
+
 # ======== Próxima Pergunta ========
 @router.post("/proxima_pergunta")
 def proxima_pergunta(pin: str, db: Session = Depends(get_db)):
@@ -304,3 +309,25 @@ def resultado_pergunta(pin: str, db: Session = Depends(get_db)):
         "pergunta_id": pergunta_id,
         "respostas": resultado
     }
+
+# ======== Resultado da Questão (Ranking por PIN) ========
+@router.get("/ranking/{pin}")
+def obter_ranking(pin: str, db: Session = Depends(get_db)):
+    # Busca a sessão com base no PIN
+    sessao = db.query(models.Session).filter(models.Session.pin == pin).first()
+    if not sessao:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+
+    jogadores = db.query(models.Player).filter(models.Player.session_id == sessao.id).all()
+    if not jogadores:
+        raise HTTPException(status_code=404, detail="Nenhum jogador encontrado para esta sessão")
+
+    ranking = [{
+        "nome": jogador.nome,
+        "pontuacao": jogador.pontuacao
+    } for jogador in jogadores]
+
+    # Ordena os jogadores por pontuação
+    ranking.sort(key=lambda x: x["pontuacao"], reverse=True)
+
+    return ranking
